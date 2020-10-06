@@ -13,7 +13,7 @@ type ReceiveMessageRequest = SQS.Types.ReceiveMessageRequest;
 export type SQSMessage = SQS.Types.Message;
 
 const requiredOptions = [
-  'queueUrl',
+  'queueUrlFn',
   // only one of handleMessage / handleMessagesBatch is required
   'handleMessage|handleMessageBatch'
 ];
@@ -74,7 +74,7 @@ function hasMessages(response: ReceieveMessageResponse): boolean {
 }
 
 export interface ConsumerOptions {
-  queueUrl?: string;
+  queueUrlFn?(): string;
   attributeNames?: string[];
   messageAttributeNames?: string[];
   stopped?: boolean;
@@ -104,7 +104,7 @@ interface Events {
 }
 
 export class Consumer extends EventEmitter {
-  private queueUrl: string;
+  private queueUrlFn: () => string;
   private handleMessage: (message: SQSMessage) => Promise<void>;
   private handleMessageBatch: (message: SQSMessage[]) => Promise<void>;
   private handleMessageTimeout: number;
@@ -123,7 +123,7 @@ export class Consumer extends EventEmitter {
   constructor(options: ConsumerOptions) {
     super();
     assertOptions(options);
-    this.queueUrl = options.queueUrl;
+    this.queueUrlFn = options.queueUrlFn;
     this.handleMessage = options.handleMessage;
     this.handleMessageBatch = options.handleMessageBatch;
     this.handleMessageTimeout = options.handleMessageTimeout;
@@ -235,7 +235,7 @@ export class Consumer extends EventEmitter {
     debug('Deleting message %s', message.MessageId);
 
     const deleteParams = {
-      QueueUrl: this.queueUrl,
+      QueueUrl: this.queueUrlFn(),
       ReceiptHandle: message.ReceiptHandle
     };
 
@@ -277,7 +277,7 @@ export class Consumer extends EventEmitter {
     try {
       return this.sqs
         .changeMessageVisibility({
-          QueueUrl: this.queueUrl,
+          QueueUrl: this.queueUrlFn(),
           ReceiptHandle: message.ReceiptHandle,
           VisibilityTimeout: timeout
         })
@@ -305,7 +305,7 @@ export class Consumer extends EventEmitter {
 
     debug('Polling for messages');
     const receiveParams = {
-      QueueUrl: this.queueUrl,
+      QueueUrl: this.queueUrlFn(),
       AttributeNames: this.attributeNames,
       MessageAttributeNames: this.messageAttributeNames,
       MaxNumberOfMessages: this.batchSize,
@@ -362,7 +362,7 @@ export class Consumer extends EventEmitter {
     debug('Deleting messages %s', messages.map((msg) => msg.MessageId).join(' ,'));
 
     const deleteParams = {
-      QueueUrl: this.queueUrl,
+      QueueUrl: this.queueUrlFn(),
       Entries: messages.map((message) => ({
         Id: message.MessageId,
         ReceiptHandle: message.ReceiptHandle
@@ -389,7 +389,7 @@ export class Consumer extends EventEmitter {
 
   private async changeVisabilityTimeoutBatch(messages: SQSMessage[], timeout: number): Promise<PromiseResult<any, AWSError>> {
     const params = {
-      QueueUrl: this.queueUrl,
+      QueueUrl: this.queueUrlFn(),
       Entries: messages.map((message) => ({
         Id: message.MessageId,
         ReceiptHandle: message.ReceiptHandle,
