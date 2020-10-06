@@ -74,7 +74,7 @@ function hasMessages(response: ReceieveMessageResponse): boolean {
 }
 
 export interface ConsumerOptions {
-  queueUrlFn?(): string;
+  queueUrlFn?: () => string;
   attributeNames?: string[];
   messageAttributeNames?: string[];
   stopped?: boolean;
